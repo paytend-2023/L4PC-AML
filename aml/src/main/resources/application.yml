@@ -1,0 +1,64 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/l4pc_aml
+    username: aml
+    password: aml
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    enabled: true
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:}
+            client-secret: ${GOOGLE_CLIENT_SECRET:}
+            scope:
+              - openid
+              - profile
+              - email
+
+server:
+  error:
+    include-message: never
+
+app:
+  security:
+    google-sso:
+      enabled: false
+      allowed-domain: ${GOOGLE_SSO_ALLOWED_DOMAIN:paytend.com}
+      portal-base-uri: ${GOOGLE_SSO_PORTAL_BASE_URI:}
+      default-success-path: ${GOOGLE_SSO_DEFAULT_SUCCESS_PATH:/aml}
+
+aml:
+  ongoing-screening:
+    enabled: false
+    cron: "0 0 2 * * ?"
+  dowjones:
+    enabled: false
+    base-url: https://djrcfeed.dowjones.com/XML/
+    credentials: ${DJ_CREDENTIALS:}
+    increment-dir: /dowjones/increment/
+    full-dir: /dowjones/full/
+    increment-paths: []
+    full-paths: []
+    download-cron: "0 0 18 * * ?"
+    increment-sync-cron: "0 0 20 * * ?"
+    full-sync-cron: "0 0 0 ? * SUN"
+  eu-sanctions:
+    enabled: false
+    cron: "0 0 4 * * ?"
+  un-sanctions:
+    enabled: false
+    cron: "0 0 5 * * ?"

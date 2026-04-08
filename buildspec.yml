@@ -1,0 +1,103 @@
+version: 0.2
+
+cache:
+  paths:
+    - '/root/.m2/**/*'
+
+env:
+  variables:
+    MODULE_NAME: "l4pc-aml-screening"
+    PROFILE: "test"
+    UPDATE_PAAS_SERVER: "false"
+    RESULT_FILE: "imagedefinitions.json"
+    COMMIT_ID: "undefined"
+
+phases:
+  pre_build:
+    commands:
+      - java -version
+      - echo "Pre-build phase"
+      - CURRENT_TIMESTAMP=$(date +"%Y%m%d%H%M")
+      - SHORT_COMMIT_ID="${CURRENT_TIMESTAMP}_$(echo "$COMMIT_ID" | cut -c 1-9)"
+      - echo "Using commit ID $SHORT_COMMIT_ID for $COMMIT_ID"
+      - export CODEARTIFACT_AUTH_TOKEN=`aws codeartifact get-authorization-token --domain paytend-domain --domain-owner 144523794490 --region eu-west-1 --query authorizationToken --output text`
+      - |
+        cat <<EOL > /root/.m2/settings.xml
+        <?xml version="1.0" encoding="UTF-8"?>
+        <settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 https://maven.apache.org/xsd/settings-1.2.0.xsd">
+          <localRepository>/root/.m2/repository</localRepository>
+
+          <servers>
+            <server>
+              <id>paytend-domain-paytend-repo</id>
+              <username>aws</username>
+              <password>${CODEARTIFACT_AUTH_TOKEN}</password>
+            </server>
+          </servers>
+
+          <mirrors>
+            <mirror>
+              <id>paytend-domain-paytend-repo</id>
+              <mirrorOf>paytend-domain-paytend-repo</mirrorOf>
+              <url>https://paytend-domain-144523794490.d.codeartifact.eu-west-1.amazonaws.com/maven/paytend-repo/</url>
+            </mirror>
+          </mirrors>
+
+          <profiles>
+            <profile>
+              <id>paytend-domain-paytend-repo</id>
+              <activation>
+                <activeByDefault>true</activeByDefault>
+              </activation>
+              <repositories>
+                <repository>
+                  <id>spring-snapshots</id>
+                  <name>Spring Snapshots</name>
+                  <url>https://repo.spring.io/snapshot</url>
+                  <releases>
+                    <enabled>false</enabled>
+                  </releases>
+                </repository>
+                <repository>
+                  <id>spring-milestones</id>
+                  <name>Spring Milestones</name>
+                  <url>https://repo.spring.io/milestone</url>
+                  <snapshots>
+                    <enabled>false</enabled>
+                  </snapshots>
+                </repository>
+                <repository>
+                  <id>paytend-domain-paytend-repo</id>
+                  <url>https://paytend-domain-144523794490.d.codeartifact.eu-west-1.amazonaws.com/maven/paytend-repo/</url>
+                </repository>
+              </repositories>
+            </profile>
+          </profiles>
+
+          <activeProfiles>
+            <activeProfile>paytend-domain-paytend-repo</activeProfile>
+          </activeProfiles>
+        </settings>
+        EOL
+
+  build:
+    commands:
+      - echo "Removing cached paytend artifacts..."
+      - rm -rf /root/.m2/repository/io/innospots
+      - rm -rf /root/.m2/repository/com/paytend
+      - mvn package -DskipTests;
+      - aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 144523794490.dkr.ecr.eu-west-1.amazonaws.com;
+      - docker build --build-arg PROFILE=$PROFILE --build-arg MODULE_NAME=$MODULE_NAME --build-arg COMMIT_ID=$COMMIT_ID -t $MODULE_NAME:$SHORT_COMMIT_ID .;
+      - docker tag $MODULE_NAME:$SHORT_COMMIT_ID 144523794490.dkr.ecr.eu-west-1.amazonaws.com/$MODULE_NAME:$SHORT_COMMIT_ID;
+      - docker tag $MODULE_NAME:$SHORT_COMMIT_ID 144523794490.dkr.ecr.eu-west-1.amazonaws.com/$MODULE_NAME:latest;
+      - echo "Pushing Docker image to ECR..."
+      - docker push --all-tags 144523794490.dkr.ecr.eu-west-1.amazonaws.com/$MODULE_NAME;
+      - echo "Image pushed to ECR successfully."
+      - echo "[{\"name\":\"$MODULE_NAME\",\"imageUri\":\"144523794490.dkr.ecr.eu-west-1.amazonaws.com/$MODULE_NAME:$SHORT_COMMIT_ID\"}]" > $RESULT_FILE;
+      - cat $RESULT_FILE
+
+artifacts:
+  files:
+    - $RESULT_FILE

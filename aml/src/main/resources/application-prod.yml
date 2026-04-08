@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: "jdbc-secretsmanager:postgresql://${AML_DB_HOST:paytend-db-test.cluster-ctqakxpesz8x.eu-central-1.rds.amazonaws.com}:${AML_DB_PORT:5432}/${AML_DB_SCHEMA:l4pc_aml}"
+    username: ${AML_DB_SECRET_ARN:arn:aws:secretsmanager:eu-central-1:144523794490:secret:prod/aml/postgres}
+    password: unused
+    driver-class-name: com.amazonaws.secretsmanager.sql.AWSSecretsManagerPostgreSQLDriver
+  flyway:
+    url: ${spring.datasource.url}
+    user: ${spring.datasource.username}
+    password: ${spring.datasource.password}
+    driver-class-name: ${spring.datasource.driver-class-name}
+
+app:
+  security:
+    google-sso:
+      enabled: true
+      allowed-domain: ${GOOGLE_SSO_ALLOWED_DOMAIN:paytend.com}
+      portal-base-uri: ${GOOGLE_SSO_PORTAL_BASE_URI:}
+      default-success-path: ${GOOGLE_SSO_DEFAULT_SUCCESS_PATH:/aml}
