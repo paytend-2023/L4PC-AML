@@ -177,6 +177,34 @@
 | replacement_action | Add SalvAmlProvider + webhook controller + scheduled push |
 | blocking_condition | Salv API credentials and webhook endpoint configuration |
 
+### AML-D013: L3Pay Missing Dedicated AML Gateway
+
+| Field | Value |
+|---|---|
+| debt_id | AML-D013 |
+| module | L3Pay / gateway |
+| source_path | `com.paytend.l3.pay.gateway.RiskGateway` (no AML method), `PayKycGateway` (no AML method) |
+| layer_tag | L3-gateway |
+| current_state | L3Pay has `RiskGateway` and `PayKycGateway` but no AML evaluation gateway. `RiskGateway.isCardBlacklisted(cardBin)` partially overlaps with pc-aml blacklist check but is scoped to card BIN only. |
+| future_target | Add `PayAmlGateway` to L3Pay with `evaluateAml(...)` method calling `POST /pc/aml/evaluate`. Or extend `RiskGateway` with AML screening capability for merchant/acquiring-side checks. |
+| priority | P1 |
+| replacement_action | L3Pay team defines AML contract for merchant onboarding and transaction screening |
+| blocking_condition | L3Pay domain team alignment on whether merchant AML goes through `RiskGateway` or a new `PayAmlGateway` |
+
+### AML-D014: L3Pay RiskGateway.isCardBlacklisted Overlap
+
+| Field | Value |
+|---|---|
+| debt_id | AML-D014 |
+| module | L3Pay / pc-aml boundary |
+| source_path | `com.paytend.l3.pay.gateway.RiskGateway.isCardBlacklisted(String cardBin)` |
+| layer_tag | PC-aml / PC-risk boundary |
+| current_state | Card BIN blacklist is in L3Pay's `RiskGateway`, but blacklist ownership belongs to pc-aml. L3Pay should call pc-aml for blacklist checks, not maintain its own. |
+| future_target | `isCardBlacklisted` should delegate to pc-aml `POST /pc/aml/evaluate` with the BIN as identifier, or pc-aml exposes a lightweight `GET /pc/aml/blacklist/check?type=CARD_BIN&value=xxx` |
+| priority | P2 |
+| replacement_action | After pc-aml blacklist data migration (AML-D009), L3Pay RiskGateway implementation should call pc-aml |
+| blocking_condition | AML-D009 (blacklist data migration) must complete first |
+
 ---
 
 ## Summary
@@ -184,8 +212,8 @@
 | Priority | Count | Items |
 |---|---|---|
 | P0 | 2 | AML-D009, AML-D010 (data migration) |
-| P1 | 4 | AML-D001, AML-D002, AML-D005, AML-D008 |
-| P2 | 6 | AML-D003, AML-D004, AML-D006, AML-D007, AML-D011, AML-D012 |
+| P1 | 5 | AML-D001, AML-D002, AML-D005, AML-D008, AML-D013 |
+| P2 | 7 | AML-D003, AML-D004, AML-D006, AML-D007, AML-D011, AML-D012, AML-D014 |
 
 ## Boundary Clarification
 
